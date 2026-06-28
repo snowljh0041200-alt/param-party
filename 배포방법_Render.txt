@@ -1,0 +1,44 @@
+바클 파티 모집 v2.0 배포용
+
+목표:
+카톡에 공유 가능한 24시간 접속 링크 만들기
+
+준비물:
+1) GitHub 계정
+2) Render 계정
+   https://render.com
+
+배포 순서:
+1. 이 ZIP 압축 풀기
+2. GitHub에 새 저장소 만들기
+   예: baram-party
+3. 압축 푼 파일 전체를 GitHub 저장소에 업로드
+   app.py
+   requirements.txt
+   Procfile
+   render.yaml
+   실행.bat
+   사용법.txt
+4. Render 접속
+5. New + 클릭
+6. Web Service 선택
+7. GitHub 저장소 연결
+8. 설정
+   Name: baram-party
+   Environment: Python
+   Build Command: pip install -r requirements.txt
+   Start Command: gunicorn app:app
+9. Deploy 클릭
+10. 배포 완료 후 주소 확인
+   예: https://baram-party.onrender.com
+
+카톡 공유:
+문파 단톡 공지에 Render 주소를 올리면 됩니다.
+
+주의:
+무료 Render는 일정 시간 접속이 없으면 잠깐 잠들 수 있습니다.
+첫 접속 때 30초~1분 정도 느릴 수 있습니다.
+
+중요:
+무료 서버는 데이터 저장이 영구 보장되지 않을 수 있습니다.
+실사용 중 데이터가 중요해지면 다음 단계에서 DB 버전으로 바꾸는 걸 추천합니다.

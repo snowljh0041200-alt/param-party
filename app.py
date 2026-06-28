@@ -153,6 +153,7 @@ def render_time(post):
     return "시간 미정"
 
 
+
 def render_post_card(p):
     pid = esc(p.get("id"))
     st = status_of(p)
@@ -164,7 +165,8 @@ def render_post_card(p):
 
     owner_id = esc(p.get("owner_id", ""))
     participant_ids = [s.get("participant_id", "") for s in p.get("slots", []) if s.get("participant_id")]
-    participants_attr = esc("|".join([s.get("char", "") for s in p.get("slots", []) if s.get("char")]))
+    participants = [s.get("char", "") for s in p.get("slots", []) if s.get("char")]
+    participants_attr = esc("|".join(participants))
     participant_ids_attr = esc("|".join(participant_ids))
     chat_count = len(p.get("chats", []))
 
@@ -187,7 +189,7 @@ def render_post_card(p):
             slot_parts.append(f"""
 <div class="slot filled" data-participant-id="{participant_id}">
   <div class="slot-left"><span class="job">{icon} {job}</span><span class="char">✅ {char}</span></div>
-  <button class="mini red cancel-action" onclick="leaveSlot('{pid}','{sid}')">비우기</button>
+  <button class="mini red participant-action" onclick="leaveSlot('{pid}','{sid}')">비우기</button>
 </div>
 """)
         else:
@@ -197,7 +199,6 @@ def render_post_card(p):
   <button class="mini green" onclick="joinSlot('{pid}','{sid}','{job}')">참여</button>
 </div>
 """)
-
     slots = "\n".join(slot_parts) if slot_parts else '<div class="small">모집 자리가 없습니다.</div>'
     time_text = esc(render_time(p))
     memo = esc(p.get("memo"))
@@ -224,10 +225,10 @@ def render_post_card(p):
   <div class="slots">{slots}</div>
   <div class="card-actions">
     <button class="big-action copy" onclick="copyPost(`{copy_text}`)">📋 복사</button>
-    <button class="big-action chat" onclick="openPartyChat('{pid}')">💬 채팅 <span class="chat-badge">{chat_count}</span></button>
+    <button class="big-action chat party-action" onclick="openPartyChat('{pid}')">💬 채팅 <span class="chat-badge">{chat_count}</span></button>
     <a class="big-action gray linkbtn owner-action" href="/edit/{pid}">수정</a>
     <button class="big-action gray owner-action" onclick="closePost('{pid}')">마감</button>
-    <button class="big-action red owner-action admin-action" onclick="deletePost('{pid}')">삭제</button>
+    <button class="big-action red owner-action" onclick="deletePost('{pid}')">삭제</button>
   </div>
 </div>
 """
@@ -278,7 +279,7 @@ label{font-size:13px;color:var(--muted);font-weight:800}
 .place{font-size:21px;font-weight:1000;margin:10px 0 4px;letter-spacing:-.4px}.meta{color:var(--muted);font-size:14px;line-height:1.55}.memo{color:var(--yellow);font-size:14px;margin-top:5px}.closed-left{color:#ffb3b3;font-size:13px;margin-top:4px;font-weight:800}
 .remain{display:inline-block;margin:2px 0 8px;background:#2b2340;color:#dac6ff;border:1px solid #4b3b77;border-radius:999px;padding:5px 10px;font-size:13px;font-weight:1000}
 .slots{margin-top:12px;border-top:1px solid var(--line);padding-top:8px}.slot{background:#11131b;border:1px solid #32364a;border-radius:14px;padding:10px;margin:8px 0;display:flex;justify-content:space-between;gap:8px;align-items:center}.slot.filled{background:#152218;border-color:#285637}.slot-left{display:flex;flex-direction:column;gap:2px}.job{font-weight:1000;font-size:16px}.char{color:#fff;font-weight:800}.empty{color:#8d92a5;font-size:13px}
-.card-actions{display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr;gap:7px;margin-top:10px}.big-action{min-height:42px;padding:9px 10px;font-size:14px;border-radius:12px}.big-action.copy{background:#25427e}.big-action.gray{background:#3a3d4f}.big-action.red{background:var(--red)}
+.card-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-top:10px}.big-action{min-height:42px;padding:9px 10px;font-size:14px;border-radius:12px}.big-action.copy{background:#25427e}.big-action.gray{background:#3a3d4f}.big-action.red{background:var(--red)}
 .hidden{display:none}.notice{color:var(--yellow);font-size:13px}.small{color:var(--muted);font-size:13px}.footer{color:#6f7382;font-size:12px;text-align:center;margin:24px 0 8px}
 .quick-slot{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
 .time-row{display:grid;grid-template-columns:82px 1fr;gap:8px;align-items:center;margin-bottom:10px}
@@ -288,12 +289,12 @@ label{font-size:13px;color:var(--muted);font-weight:800}
 .toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#222638;color:#fff;border:1px solid #555b78;border-radius:999px;padding:10px 16px;font-weight:900;z-index:99;opacity:0;pointer-events:none;transition:.2s}.toast.show{opacity:1}
 .my-filter-on .post:not(.mine){display:none}
 @media(max-width:520px){.card-actions{grid-template-columns:1fr 1fr}.big-action{width:100%}.summary{grid-template-columns:1fr 1fr 1fr}}
-
-.owner-action{display:none!important}
-.owner-action.show{display:inline-flex!important}
-.cancel-action{display:none!important}
-.cancel-action.show{display:inline-flex!important}
+.owner-action,.participant-action,.party-action{display:none!important}
+.owner-action.show,.participant-action.show,.party-action.show{display:inline-flex!important}
 .protect-notice{font-size:12px;color:#8d92a5;margin-top:6px}
+
+.party-action{display:none!important}
+.party-action.show{display:inline-flex!important}
 .big-action.chat{background:#2d4f7f}
 .chat-badge{margin-left:4px;background:#11131b;border:1px solid #53617d;border-radius:999px;padding:1px 6px;font-size:12px}
 .alarm-toggle{position:fixed;left:14px;bottom:22px;z-index:60;background:#24283a;border:1px solid #4b526d;border-radius:999px;padding:10px 13px;font-size:13px;font-weight:900}
@@ -308,8 +309,9 @@ label{font-size:13px;color:var(--muted);font-weight:800}
 .chat-meta{font-size:12px;color:#a8acba;margin-bottom:3px}
 .chat-text{font-size:15px;line-height:1.35;word-break:break-word}
 .chat-form{display:grid;grid-template-columns:90px 1fr 68px;gap:7px;margin-top:8px}
-.chat-form input{margin:0}.chat-form button{min-height:46px;padding:8px}
-@media(max-width:520px){.chat-form{grid-template-columns:1fr}.chat-form button{width:100%}.alarm-toggle{bottom:88px}}
+.chat-form input{margin:0}
+.chat-form button{min-height:46px;padding:8px}
+@media(max-width:520px){.card-actions{grid-template-columns:1fr 1fr}.chat-form{grid-template-columns:1fr}.chat-form button{width:100%}.alarm-toggle{bottom:88px}}
 </style>
 </head>
 <body>
@@ -435,16 +437,20 @@ label{font-size:13px;color:var(--muted);font-weight:800}
 <div id="charList"></div>
 </div>
 {% endif %}
-<div class="footer">월하 · 연가 · 연희 통합 파티 모집 v3.2</div>
+<div class="footer">월하 · 연가 · 연희 통합 파티 모집 v3.1.1</div>
 </div>
 {% if page == "home" %}
 <a class="btn fab" href="/new">+</a>
 {% endif %}
 
 <button id="alarmToggle" class="alarm-toggle" onclick="toggleAlarm()">🔔 알림 ON</button>
+
 <div id="partyChatModal" class="modal" onclick="if(event.target.id==='partyChatModal')closePartyChat()">
   <div class="chat-panel">
-    <div class="chat-head"><b id="chatTitle">파티채팅</b><button class="mini gray" onclick="closePartyChat()">닫기</button></div>
+    <div class="chat-head">
+      <b id="chatTitle">파티채팅</b>
+      <button class="mini gray" onclick="closePartyChat()">닫기</button>
+    </div>
     <div id="partyChatList" class="chat-list"></div>
     <div class="chat-form">
       <input id="partyChatName" placeholder="닉네임" maxlength="12">
@@ -453,13 +459,52 @@ label{font-size:13px;color:var(--muted);font-weight:800}
     </div>
   </div>
 </div>
+
 <div id="toast" class="toast">완료</div>
 
 <script>
 if("serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js").catch(()=>{});}
-function getClientId(){let id=localStorage.getItem("baram_client_id");if(!id){id=(crypto&&crypto.randomUUID)?crypto.randomUUID():("id_"+Date.now()+"_"+Math.random().toString(16).slice(2));localStorage.setItem("baram_client_id",id);}return id;}
-function prepareSubmit(){let input=document.getElementById("ownerIdInput");if(input)input.value=getClientId();return validateForm();}
-function applyOwnerProtection(){const id=getClientId();document.querySelectorAll(".post").forEach(post=>{const isOwner=post.dataset.ownerId&&post.dataset.ownerId===id;post.querySelectorAll(".owner-action").forEach(btn=>btn.classList.toggle("show",isOwner));post.querySelectorAll(".slot").forEach(slot=>{const pid=slot.dataset.participantId||"";const canCancel=isOwner||(pid&&pid===id);slot.querySelectorAll(".cancel-action").forEach(btn=>btn.classList.toggle("show",canCancel));});});}
+function getClientId(){
+  let id=localStorage.getItem("baram_client_id");
+  if(!id){
+    id=(crypto&&crypto.randomUUID)?crypto.randomUUID():("id_"+Date.now()+"_"+Math.random().toString(16).slice(2));
+    localStorage.setItem("baram_client_id",id);
+  }
+  return id;
+}
+function prepareSubmit(){
+  let input=document.getElementById("ownerIdInput");
+  if(input) input.value=getClientId();
+  return validateForm();
+}
+function applyOwnerProtection(){
+  const id=getClientId();
+  document.querySelectorAll(".post").forEach(post=>{
+    const ownerId=post.dataset.ownerId || "";
+    const participantIds=(post.dataset.participantIds || "").split("|").filter(Boolean);
+    const isOwner=ownerId && ownerId===id;
+    const inParty=isOwner || participantIds.includes(id);
+
+    post.querySelectorAll(".owner-action").forEach(btn=>{
+      if(isOwner){btn.classList.add("show");}
+      else{btn.classList.remove("show");}
+    });
+
+    post.querySelectorAll(".party-action").forEach(btn=>{
+      if(inParty){btn.classList.add("show");}
+      else{btn.classList.remove("show");}
+    });
+
+    post.querySelectorAll(".slot").forEach(slot=>{
+      const pid=slot.dataset.participantId || "";
+      const canCancel=isOwner || (pid && pid===id);
+      slot.querySelectorAll(".participant-action").forEach(btn=>{
+        if(canCancel){btn.classList.add("show");}
+        else{btn.classList.remove("show");}
+      });
+    });
+  });
+}
 function showToast(msg){let t=document.getElementById("toast"); if(!t)return; t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1400);}
 function fallbackCopy(text){let ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");showToast("복사되었습니다");}catch(e){alert(text);}document.body.removeChild(ta);}
 function copyPost(text){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(()=>showToast("복사되었습니다")).catch(()=>fallbackCopy(text));}else{fallbackCopy(text);}}
@@ -467,7 +512,16 @@ function refreshList(){if(location.pathname==="/"){fetch("/api/posts"+location.s
 setInterval(refreshList,2500);
 function updatePlaces(){let type=document.getElementById("typeSelect"); if(!type)return; document.querySelectorAll(".place-select").forEach(el=>el.classList.add("hidden"));let target=document.getElementById("place_"+type.value); if(target)target.classList.remove("hidden");}
 function validateForm(){let ch=document.getElementById("channelInput").value.trim();if(ch&&!/^\\d{4}$/.test(ch)){alert("채널은 숫자 4자리로 입력해줘. 예: 3385");return false;}return true;}
-function addSlot(){let job=document.getElementById("slotJob").value;let box=document.getElementById("slotsBox");let div=document.createElement("div");div.className="slot";div.innerHTML="<div class='slot-left'><span class='job'>"+job+"</span></div><button type='button' class='mini red' onclick='this.parentElement.remove()'>삭제</button><input type='hidden' name='slots' value='"+job+"'><input type='hidden' name='slot_chars' value=''><input type='hidden' name='slot_participant_ids' value=''>";box.appendChild(div);}
+function addSlot(){
+  let sel=document.getElementById("slotJob");
+  let box=document.getElementById("slotsBox");
+  if(!sel||!box){alert("자리 추가 영역을 찾지 못했습니다.");return;}
+  let job=sel.value;
+  let div=document.createElement("div");
+  div.className="slot";
+  div.innerHTML="<div class='slot-left'><span class='job'>"+job+"</span></div><button type='button' class='mini red' onclick='this.parentElement.remove()'>삭제</button><input type='hidden' name='slots' value='"+job+"'><input type='hidden' name='slot_chars' value=''><input type='hidden' name='slot_participant_ids' value=''>";
+  box.appendChild(div);
+}
 function getChars(){return JSON.parse(localStorage.getItem("baram_chars")||"[]");}
 function setChars(chars){localStorage.setItem("baram_chars",JSON.stringify(chars));renderChars();markMyPosts();}
 function saveChar(){let name=document.getElementById("charName").value.trim();let job=document.getElementById("charJob").value;if(!name){alert("캐릭터명을 입력해줘.");return;}let chars=getChars();chars.push({name:name,job:job});setChars(chars);document.getElementById("charName").value="";showToast("저장되었습니다");}
@@ -477,7 +531,7 @@ renderChars();
 function joinSlot(postId,slotId,job){let matching=getChars().filter(c=>c.job===job);let name="";if(matching.length===1){name=matching[0].name;}else if(matching.length>1){name=prompt("참여할 캐릭터명을 입력해줘.\\n등록 캐릭터: "+matching.map(c=>c.name).join(", "));}else{name=prompt(job+" 자리 참여 캐릭터명 입력");}if(!name)return;fetch("/join",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({post_id:postId,slot_id:slotId,char:name,participant_id:getClientId()})}).then(()=>{refreshList();showToast("참여되었습니다");});}
 function leaveSlot(postId,slotId){if(!confirm("이 자리를 비울까?"))return;fetch("/leave",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({post_id:postId,slot_id:slotId,participant_id:getClientId()})}).then(()=>{refreshList();showToast("취소되었습니다");});}
 function closePost(postId){if(!confirm("이 모집글을 마감할까?\\n마감 후 1시간 뒤 자동 삭제됩니다."))return;fetch("/close",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({post_id:postId,owner_id:getClientId()})}).then(()=>refreshList());}
-function deletePost(postId){if(!confirm("이 모집글을 바로 삭제할까?"))return;fetch("/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({post_id:postId,owner_id:getClientId(),admin_pw:prompt("관리자 삭제 비밀번호가 있으면 입력\n없으면 그냥 확인")||""})}).then(()=>refreshList());}
+function deletePost(postId){if(!confirm("이 모집글을 바로 삭제할까?"))return;fetch("/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({post_id:postId})}).then(()=>refreshList());}
 function alarmOn(){return localStorage.getItem("baram_alarm_off")!=="1";}
 function updateAlarmButton(){let b=document.getElementById("alarmToggle");if(b)b.textContent=alarmOn()?"🔔 알림 ON":"🔕 알림 OFF";}
 function toggleAlarm(){localStorage.setItem("baram_alarm_off",alarmOn()?"1":"0");updateAlarmButton();showToast(alarmOn()?"알림 켜짐":"알림 꺼짐");}
@@ -485,19 +539,72 @@ function notify(msg){if(alarmOn())showToast(msg);}
 let knownPosts=JSON.parse(localStorage.getItem("baram_known_posts")||"[]");
 let knownChats=JSON.parse(localStorage.getItem("baram_known_chats")||"{}");
 let knownFilled=JSON.parse(localStorage.getItem("baram_known_filled")||"{}");
-function markMyPosts(){const id=getClientId();let count=0;document.querySelectorAll(".post").forEach(p=>{const isOwner=p.dataset.ownerId&&p.dataset.ownerId===id;const joined=(p.dataset.participantIds||"").split("|").includes(id);const mine=isOwner||joined;p.classList.toggle("mine",mine);if(mine)count++;});let mc=document.getElementById("myCount");if(mc)mc.textContent=count;}
+function markMyPosts(){
+  const id=getClientId();
+  let count=0;
+  document.querySelectorAll(".post").forEach(p=>{
+    const isOwner=p.dataset.ownerId && p.dataset.ownerId===id;
+    const joined=(p.dataset.participantIds||"").split("|").includes(id);
+    const mine=isOwner||joined;
+    p.classList.toggle("mine",mine);
+    if(mine)count++;
+  });
+  let mc=document.getElementById("myCount");if(mc)mc.textContent=count;
+}
 function toggleMyPosts(){document.body.classList.toggle("my-filter-on");markMyPosts();showToast(document.body.classList.contains("my-filter-on")?"내 참여/내 글만 보기":"전체 보기");}
-function scanNotifications(){const id=getClientId();document.querySelectorAll(".post").forEach(p=>{const postId=p.dataset.postId;const place=p.dataset.place||"모집";const chatCount=parseInt(p.dataset.chatCount||"0");const filled=parseInt(p.dataset.filled||"0");const isOwner=p.dataset.ownerId===id;const inParty=isOwner||(p.dataset.participantIds||"").split("|").includes(id);if(!knownPosts.includes(postId)){if(knownPosts.length>0)notify("🆕 새 모집: "+place);knownPosts.push(postId);}if(inParty&&knownChats[postId]!==undefined&&chatCount>knownChats[postId])notify("💬 새 파티채팅");if(isOwner&&knownFilled[postId]!==undefined&&filled>knownFilled[postId])notify("🔔 새 참여자가 있습니다");knownChats[postId]=chatCount;knownFilled[postId]=filled;});knownPosts=knownPosts.slice(-200);localStorage.setItem("baram_known_posts",JSON.stringify(knownPosts));localStorage.setItem("baram_known_chats",JSON.stringify(knownChats));localStorage.setItem("baram_known_filled",JSON.stringify(knownFilled));}
+function scanNotifications(){
+  const id=getClientId();
+  document.querySelectorAll(".post").forEach(p=>{
+    const postId=p.dataset.postId;
+    const place=p.dataset.place||"모집";
+    const chatCount=parseInt(p.dataset.chatCount||"0");
+    const filled=parseInt(p.dataset.filled||"0");
+    const isOwner=p.dataset.ownerId===id;
+    const inParty=isOwner||(p.dataset.participantIds||"").split("|").includes(id);
+    if(!knownPosts.includes(postId)){
+      if(knownPosts.length>0)notify("🆕 새 모집: "+place);
+      knownPosts.push(postId);
+    }
+    if(inParty && knownChats[postId]!==undefined && chatCount>knownChats[postId])notify("💬 새 파티채팅");
+    if(isOwner && knownFilled[postId]!==undefined && filled>knownFilled[postId])notify("🔔 새 참여자가 있습니다");
+    knownChats[postId]=chatCount;
+    knownFilled[postId]=filled;
+  });
+  knownPosts=knownPosts.slice(-200);
+  localStorage.setItem("baram_known_posts",JSON.stringify(knownPosts));
+  localStorage.setItem("baram_known_chats",JSON.stringify(knownChats));
+  localStorage.setItem("baram_known_filled",JSON.stringify(knownFilled));
+}
 let currentChatPostId=null;
-function openPartyChat(postId){currentChatPostId=postId;let m=document.getElementById("partyChatModal");if(m)m.classList.add("show");let saved=localStorage.getItem("baram_chat_name");if(saved&&document.getElementById("partyChatName"))document.getElementById("partyChatName").value=saved;refreshPartyChat();}
+function openPartyChat(postId){
+  currentChatPostId=postId;
+  let m=document.getElementById("partyChatModal");
+  if(m)m.classList.add("show");
+  let saved=localStorage.getItem("baram_chat_name");
+  if(saved&&document.getElementById("partyChatName"))document.getElementById("partyChatName").value=saved;
+  refreshPartyChat();
+}
 function closePartyChat(){let m=document.getElementById("partyChatModal");if(m)m.classList.remove("show");currentChatPostId=null;}
-function refreshPartyChat(){if(!currentChatPostId)return;fetch("/api/party_chat/"+currentChatPostId+"?client_id="+encodeURIComponent(getClientId())).then(r=>r.text()).then(html=>{let box=document.getElementById("partyChatList");if(box){box.innerHTML=html;box.scrollTop=box.scrollHeight;}});}
-function sendPartyChat(){if(!currentChatPostId)return;let name=document.getElementById("partyChatName");let text=document.getElementById("partyChatText");if(!text||!text.value.trim())return;if(name&&name.value.trim())localStorage.setItem("baram_chat_name",name.value.trim());fetch("/party_chat/"+currentChatPostId,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({client_id:getClientId(),name:name?name.value.trim():"익명",text:text.value.trim()})}).then(r=>r.json()).then(res=>{if(!res.ok){showToast("참여자만 이용 가능");return;}text.value="";refreshPartyChat();refreshList();});}
+function refreshPartyChat(){
+  if(!currentChatPostId)return;
+  fetch("/api/party_chat/"+currentChatPostId+"?client_id="+encodeURIComponent(getClientId()))
+  .then(r=>r.text()).then(html=>{let box=document.getElementById("partyChatList");if(box){box.innerHTML=html;box.scrollTop=box.scrollHeight;}});
+}
+function sendPartyChat(){
+  if(!currentChatPostId)return;
+  let name=document.getElementById("partyChatName");
+  let text=document.getElementById("partyChatText");
+  if(!text||!text.value.trim())return;
+  if(name&&name.value.trim())localStorage.setItem("baram_chat_name",name.value.trim());
+  fetch("/party_chat/"+currentChatPostId,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({client_id:getClientId(),name:name?name.value.trim():"익명",text:text.value.trim()})})
+  .then(r=>r.json()).then(res=>{if(!res.ok){showToast("참여자만 이용 가능");return;}text.value="";refreshPartyChat();refreshList();});
+}
 setInterval(refreshPartyChat,1600);
 markMyPosts();
 applyOwnerProtection();
 updateAlarmButton();
 scanNotifications();
+setTimeout(()=>{applyOwnerProtection();markMyPosts();},300);
 </script>
 </body>
 </html>
@@ -652,8 +759,7 @@ def close():
     def do_close(data):
         for post in data.get("posts", []):
             if post.get("id") == req.get("post_id"):
-                admin_ok = req.get("admin_pw", "") == os.environ.get("ADMIN_PASSWORD", "")
-                if post.get("owner_id") and post.get("owner_id") != req.get("owner_id", "") and not admin_ok:
+                if post.get("owner_id") and post.get("owner_id") != req.get("owner_id", ""):
                     return
                 post["closed"] = True
                 if not post.get("closed_at"):
@@ -668,10 +774,9 @@ def delete():
     def do_delete(data):
         post_id = req.get("post_id")
         owner_id = req.get("owner_id", "")
-        admin_ok = req.get("admin_pw", "") == os.environ.get("ADMIN_PASSWORD", "")
         data["posts"] = [
             post for post in data.get("posts", [])
-            if not (post.get("id") == post_id and (not post.get("owner_id") or post.get("owner_id") == owner_id or admin_ok))
+            if not (post.get("id") == post_id and (not post.get("owner_id") or post.get("owner_id") == owner_id))
         ]
     mutate_data(do_delete)
     return jsonify(ok=True)
@@ -728,7 +833,12 @@ def party_chat(post_id):
                     allowed["ok"] = False
                     return
                 post.setdefault("chats", [])
-                post["chats"].append({"client_id": client_id, "name": name, "text": text, "time": datetime.now().strftime("%H:%M")})
+                post["chats"].append({
+                    "client_id": client_id,
+                    "name": name,
+                    "text": text,
+                    "time": datetime.now().strftime("%H:%M")
+                })
                 if len(post["chats"]) > 100:
                     post["chats"] = post["chats"][-100:]
                 allowed["ok"] = True
@@ -739,7 +849,7 @@ def party_chat(post_id):
 @app.route("/manifest.json")
 def manifest():
     return jsonify({
-        "name": "월하 연가 연희 파티모집",
+        "name": "월하 연가 연희 파티모집 v3.1.1",
         "short_name": "파티채팅",
         "start_url": "/",
         "display": "standalone",

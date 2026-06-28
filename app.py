@@ -423,7 +423,7 @@ label{font-size:13px;color:var(--muted);font-weight:800}
 <a class="btn gray" style="width:100%;margin-top:8px" href="/">취소</a>
 </form>
 </div>
-<script>setTimeout(updatePlaces, 50);</script>
+<script>setTimeout(function(){ if (typeof updatePlaces === "function") updatePlaces(); }, 50);</script>
 {% endif %}
 
 {% if page == "profile" %}
@@ -437,7 +437,7 @@ label{font-size:13px;color:var(--muted);font-weight:800}
 <div id="charList"></div>
 </div>
 {% endif %}
-<div class="footer">월하 · 연가 · 연희 통합 파티 모집 v3.1.1</div>
+<div class="footer">월하 · 연가 · 연희 통합 파티 모집 v3.1.2</div>
 </div>
 {% if page == "home" %}
 <a class="btn fab" href="/new">+</a>
@@ -482,25 +482,25 @@ function applyOwnerProtection(){
   document.querySelectorAll(".post").forEach(post=>{
     const ownerId=post.dataset.ownerId || "";
     const participantIds=(post.dataset.participantIds || "").split("|").filter(Boolean);
-    const isOwner=ownerId && ownerId===id;
+
+    // v3 이전에 작성된 기존 글은 ownerId가 없어서 우선 정리 가능하게 표시
+    const isLegacyPost=!ownerId;
+    const isOwner=isLegacyPost || ownerId===id;
     const inParty=isOwner || participantIds.includes(id);
 
     post.querySelectorAll(".owner-action").forEach(btn=>{
-      if(isOwner){btn.classList.add("show");}
-      else{btn.classList.remove("show");}
+      btn.classList.toggle("show",!!isOwner);
     });
 
     post.querySelectorAll(".party-action").forEach(btn=>{
-      if(inParty){btn.classList.add("show");}
-      else{btn.classList.remove("show");}
+      btn.classList.toggle("show",!!inParty);
     });
 
     post.querySelectorAll(".slot").forEach(slot=>{
       const pid=slot.dataset.participantId || "";
       const canCancel=isOwner || (pid && pid===id);
       slot.querySelectorAll(".participant-action").forEach(btn=>{
-        if(canCancel){btn.classList.add("show");}
-        else{btn.classList.remove("show");}
+        btn.classList.toggle("show",!!canCancel);
       });
     });
   });
@@ -508,19 +508,31 @@ function applyOwnerProtection(){
 function showToast(msg){let t=document.getElementById("toast"); if(!t)return; t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1400);}
 function fallbackCopy(text){let ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");showToast("복사되었습니다");}catch(e){alert(text);}document.body.removeChild(ta);}
 function copyPost(text){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(()=>showToast("복사되었습니다")).catch(()=>fallbackCopy(text));}else{fallbackCopy(text);}}
-function refreshList(){if(location.pathname==="/"){fetch("/api/posts"+location.search).then(r=>r.text()).then(html=>{let t=document.getElementById("postList"); if(t){t.innerHTML=html;markMyPosts();applyOwnerProtection();scanNotifications();}}).catch(()=>{});}}
+function refreshList(){if(location.pathname==="/"){fetch("/api/posts"+location.search).then(r=>r.text()).then(html=>{let t=document.getElementById("postList"); if(t){t.innerHTML=html;markMyPosts();applyOwnerProtection();if(typeof scanNotifications==="function")scanNotifications();}}).catch(()=>{});}}
 setInterval(refreshList,2500);
 function updatePlaces(){let type=document.getElementById("typeSelect"); if(!type)return; document.querySelectorAll(".place-select").forEach(el=>el.classList.add("hidden"));let target=document.getElementById("place_"+type.value); if(target)target.classList.remove("hidden");}
 function validateForm(){let ch=document.getElementById("channelInput").value.trim();if(ch&&!/^\\d{4}$/.test(ch)){alert("채널은 숫자 4자리로 입력해줘. 예: 3385");return false;}return true;}
 function addSlot(){
-  let sel=document.getElementById("slotJob");
-  let box=document.getElementById("slotsBox");
-  if(!sel||!box){alert("자리 추가 영역을 찾지 못했습니다.");return;}
-  let job=sel.value;
-  let div=document.createElement("div");
-  div.className="slot";
-  div.innerHTML="<div class='slot-left'><span class='job'>"+job+"</span></div><button type='button' class='mini red' onclick='this.parentElement.remove()'>삭제</button><input type='hidden' name='slots' value='"+job+"'><input type='hidden' name='slot_chars' value=''><input type='hidden' name='slot_participant_ids' value=''>";
-  box.appendChild(div);
+  try{
+    let sel=document.getElementById("slotJob");
+    let box=document.getElementById("slotsBox");
+    if(!sel || !box){
+      alert("자리 추가 영역을 찾지 못했습니다. 새로고침 후 다시 시도해줘.");
+      return;
+    }
+    let job=sel.value || "진선";
+    let div=document.createElement("div");
+    div.className="slot";
+    div.innerHTML =
+      "<div class='slot-left'><span class='job'>"+job+"</span></div>" +
+      "<button type='button' class='mini red' onclick='this.parentElement.remove()'>삭제</button>" +
+      "<input type='hidden' name='slots' value='"+job+"'>" +
+      "<input type='hidden' name='slot_chars' value=''>" +
+      "<input type='hidden' name='slot_participant_ids' value=''>";
+    box.appendChild(div);
+  }catch(e){
+    alert("자리 추가 중 오류가 났어: "+e.message);
+  }
 }
 function getChars(){return JSON.parse(localStorage.getItem("baram_chars")||"[]");}
 function setChars(chars){localStorage.setItem("baram_chars",JSON.stringify(chars));renderChars();markMyPosts();}
@@ -785,6 +797,8 @@ def delete():
 def can_access_party_chat(post, client_id):
     if not client_id:
         return False
+    if not post.get("owner_id"):
+        return True
     if post.get("owner_id") == client_id:
         return True
     for slot in post.get("slots", []):
@@ -849,7 +863,7 @@ def party_chat(post_id):
 @app.route("/manifest.json")
 def manifest():
     return jsonify({
-        "name": "월하 연가 연희 파티모집 v3.1.1",
+        "name": "월하 연가 연희 파티모집 v3.1.2",
         "short_name": "파티채팅",
         "start_url": "/",
         "display": "standalone",

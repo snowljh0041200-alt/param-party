@@ -152,6 +152,7 @@ def render_time(post):
         return end_text
     return "시간 미정"
 
+
 def render_post_card(p):
     pid = esc(p.get("id"))
     st = status_of(p)
@@ -160,7 +161,7 @@ def render_post_card(p):
     filled, total = count_slots(p)
     remain = max(total - filled, 0)
     remain_text = "모집완료" if remain == 0 and total > 0 else f"{remain}자리 남음"
-
+    owner_id = esc(p.get("owner_id", ""))
     participants = [s.get("char", "") for s in p.get("slots", []) if s.get("char")]
     participants_attr = esc("|".join(participants))
 
@@ -177,12 +178,13 @@ def render_post_card(p):
         job = esc(job_raw)
         icon = job_icon(job_raw)
         char = esc(s.get("char"))
+        participant_id = esc(s.get("participant_id", ""))
         copy_lines.append(f"{job_raw} - {s.get('char') or '모집중'}")
         if char:
             slot_parts.append(f"""
-<div class="slot filled">
+<div class="slot filled" data-participant-id="{participant_id}">
   <div class="slot-left"><span class="job">{icon} {job}</span><span class="char">✅ {char}</span></div>
-  <button class="mini red" onclick="leaveSlot('{pid}','{sid}')">비우기</button>
+  <button class="mini red participant-action owner-action" onclick="leaveSlot('{pid}','{sid}')">비우기</button>
 </div>
 """)
         else:
@@ -192,6 +194,7 @@ def render_post_card(p):
   <button class="mini green" onclick="joinSlot('{pid}','{sid}','{job}')">참여</button>
 </div>
 """)
+
     slots = "\n".join(slot_parts) if slot_parts else '<div class="small">모집 자리가 없습니다.</div>'
     time_text = esc(render_time(p))
     memo = esc(p.get("memo"))
@@ -201,7 +204,7 @@ def render_post_card(p):
     copy_text = esc("\\n".join(copy_lines))
 
     return f"""
-<div class="card post {card_class}" data-participants="{participants_attr}">
+<div class="card post {card_class}" data-owner-id="{owner_id}" data-participants="{participants_attr}">
   <div class="post-top">
     <div>
       <span class="badge {status_class}">{'🟢 ' if st == '모집중' else '🔴 '}{st}</span>
@@ -218,9 +221,9 @@ def render_post_card(p):
   <div class="slots">{slots}</div>
   <div class="card-actions">
     <button class="big-action copy" onclick="copyPost(`{copy_text}`)">📋 복사</button>
-    <a class="big-action gray linkbtn" href="/edit/{pid}">수정</a>
-    <button class="big-action gray" onclick="closePost('{pid}')">마감</button>
-    <button class="big-action red" onclick="deletePost('{pid}')">삭제</button>
+    <a class="big-action gray linkbtn owner-action" href="/edit/{pid}">수정</a>
+    <button class="big-action gray owner-action" onclick="closePost('{pid}')">마감</button>
+    <button class="big-action red owner-action" onclick="deletePost('{pid}')">삭제</button>
   </div>
 </div>
 """
@@ -281,6 +284,11 @@ label{font-size:13px;color:var(--muted);font-weight:800}
 .toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#222638;color:#fff;border:1px solid #555b78;border-radius:999px;padding:10px 16px;font-weight:900;z-index:99;opacity:0;pointer-events:none;transition:.2s}.toast.show{opacity:1}
 .my-filter-on .post:not(.mine){display:none}
 @media(max-width:520px){.card-actions{grid-template-columns:1fr 1fr}.big-action{width:100%}.summary{grid-template-columns:1fr 1fr 1fr}}
+.owner-action{display:none!important}
+.owner-action.show{display:inline-flex!important}
+.participant-action{display:none!important}
+.participant-action.show{display:inline-flex!important}
+.protect-notice{font-size:12px;color:#8d92a5;margin-top:6px}
 </style>
 </head>
 <body>
@@ -314,8 +322,9 @@ label{font-size:13px;color:var(--muted);font-weight:800}
 {% if page == "new" or page == "edit" %}
 <div class="card">
 <h2>{% if page == "edit" %}모집글 수정{% else %}구인글 올리기{% endif %}</h2>
-<form method="post" action="{% if page == 'edit' %}/edit/{{ post.id }}{% else %}/create{% endif %}" onsubmit="return validateForm()">
-<label>작성자 닉네임</label>
+<form method="post" action="{% if page == 'edit' %}/edit/{{ post.id }}{% else %}/create{% endif %}" onsubmit="return prepareSubmit()">
+<input type="hidden" name="owner_id" id="ownerIdInput">
+<label>작성자 닉네임</label><div class="protect-notice">수정/삭제/마감은 글을 작성한 기기에서만 가능합니다.</div>
 <input name="owner" required placeholder="예: 역인" value="{{ post.owner if post else '' }}">
 
 <div class="grid">
@@ -379,7 +388,7 @@ label{font-size:13px;color:var(--muted);font-weight:800}
           <div class="slot-left"><span class="job">{{ slot.job }}</span><span class="small">{{ slot.char }}</span></div>
           <button type="button" class="mini red" onclick="this.parentElement.remove()">삭제</button>
           <input type="hidden" name="slots" value="{{ slot.job }}">
-          <input type="hidden" name="slot_chars" value="{{ slot.char }}">
+          <input type="hidden" name="slot_chars" value="{{ slot.char }}"><input type="hidden" name="slot_participant_ids" value="{{ slot.participant_id }}">
         </div>
       {% endfor %}
     {% endif %}
@@ -405,7 +414,7 @@ label{font-size:13px;color:var(--muted);font-weight:800}
 <div id="charList"></div>
 </div>
 {% endif %}
-<div class="footer">월하 · 연가 · 연희 통합 파티 모집 v2.0</div>
+<div class="footer">월하 · 연가 · 연희 통합 파티 모집 v3.0</div>
 </div>
 {% if page == "home" %}
 <a class="btn fab" href="/new">+</a>
@@ -414,28 +423,54 @@ label{font-size:13px;color:var(--muted);font-weight:800}
 
 <script>
 if("serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js").catch(()=>{});}
+function getClientId(){
+  let id=localStorage.getItem("baram_client_id");
+  if(!id){
+    id=(crypto&&crypto.randomUUID)?crypto.randomUUID():("id_"+Date.now()+"_"+Math.random().toString(16).slice(2));
+    localStorage.setItem("baram_client_id",id);
+  }
+  return id;
+}
+function prepareSubmit(){
+  let input=document.getElementById("ownerIdInput");
+  if(input) input.value=getClientId();
+  return validateForm();
+}
+function applyOwnerProtection(){
+  const id=getClientId();
+  document.querySelectorAll(".post").forEach(post=>{
+    const isOwner=post.dataset.ownerId && post.dataset.ownerId===id;
+    post.querySelectorAll(".owner-action").forEach(btn=>btn.classList.toggle("show",isOwner));
+    post.querySelectorAll(".slot").forEach(slot=>{
+      const pid=slot.dataset.participantId || "";
+      const canCancel=isOwner || (pid && pid===id);
+      slot.querySelectorAll(".participant-action").forEach(btn=>btn.classList.toggle("show",canCancel));
+    });
+  });
+}
 function showToast(msg){let t=document.getElementById("toast"); if(!t)return; t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1400);}
 function fallbackCopy(text){let ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");showToast("복사되었습니다");}catch(e){alert(text);}document.body.removeChild(ta);}
 function copyPost(text){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(()=>showToast("복사되었습니다")).catch(()=>fallbackCopy(text));}else{fallbackCopy(text);}}
-function refreshList(){if(location.pathname==="/"){fetch("/api/posts"+location.search).then(r=>r.text()).then(html=>{let t=document.getElementById("postList"); if(t){t.innerHTML=html;markMyPosts();}}).catch(()=>{});}}
+function refreshList(){if(location.pathname==="/"){fetch("/api/posts"+location.search).then(r=>r.text()).then(html=>{let t=document.getElementById("postList"); if(t){t.innerHTML=html;markMyPosts();applyOwnerProtection();}}).catch(()=>{});}}
 setInterval(refreshList,2500);
 function updatePlaces(){let type=document.getElementById("typeSelect"); if(!type)return; document.querySelectorAll(".place-select").forEach(el=>el.classList.add("hidden"));let target=document.getElementById("place_"+type.value); if(target)target.classList.remove("hidden");}
 function validateForm(){let ch=document.getElementById("channelInput").value.trim();if(ch&&!/^\\d{4}$/.test(ch)){alert("채널은 숫자 4자리로 입력해줘. 예: 3385");return false;}return true;}
-function addSlot(){let job=document.getElementById("slotJob").value;let box=document.getElementById("slotsBox");let div=document.createElement("div");div.className="slot";div.innerHTML="<div class='slot-left'><span class='job'>"+job+"</span></div><button type='button' class='mini red' onclick='this.parentElement.remove()'>삭제</button><input type='hidden' name='slots' value='"+job+"'><input type='hidden' name='slot_chars' value=''>";box.appendChild(div);}
+function addSlot(){let job=document.getElementById("slotJob").value;let box=document.getElementById("slotsBox");let div=document.createElement("div");div.className="slot";div.innerHTML="<div class='slot-left'><span class='job'>"+job+"</span></div><button type='button' class='mini red' onclick='this.parentElement.remove()'>삭제</button><input type='hidden' name='slots' value='"+job+"'><input type='hidden' name='slot_chars' value=''><input type='hidden' name='slot_participant_ids' value=''>";box.appendChild(div);}
 function getChars(){return JSON.parse(localStorage.getItem("baram_chars")||"[]");}
 function setChars(chars){localStorage.setItem("baram_chars",JSON.stringify(chars));renderChars();markMyPosts();}
 function saveChar(){let name=document.getElementById("charName").value.trim();let job=document.getElementById("charJob").value;if(!name){alert("캐릭터명을 입력해줘.");return;}let chars=getChars();chars.push({name:name,job:job});setChars(chars);document.getElementById("charName").value="";showToast("저장되었습니다");}
 function deleteChar(index){let chars=getChars();chars.splice(index,1);setChars(chars);}
 function renderChars(){let list=document.getElementById("charList");if(!list)return;let chars=getChars();if(!chars.length){list.innerHTML="<div class='card small'>등록된 캐릭터가 없습니다.</div>";return;}list.innerHTML=chars.map((c,i)=>"<div class='slot'><div class='slot-left'><b>"+c.name+"</b><span>"+c.job+"</span></div><button class='mini red' onclick='deleteChar("+i+")'>삭제</button></div>").join("");}
 renderChars();
-function joinSlot(postId,slotId,job){let matching=getChars().filter(c=>c.job===job);let name="";if(matching.length===1){name=matching[0].name;}else if(matching.length>1){name=prompt("참여할 캐릭터명을 입력해줘.\\n등록 캐릭터: "+matching.map(c=>c.name).join(", "));}else{name=prompt(job+" 자리 참여 캐릭터명 입력");}if(!name)return;fetch("/join",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({post_id:postId,slot_id:slotId,char:name})}).then(()=>{refreshList();showToast("참여되었습니다");});}
-function leaveSlot(postId,slotId){if(!confirm("이 자리를 비울까?"))return;fetch("/leave",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({post_id:postId,slot_id:slotId})}).then(()=>{refreshList();showToast("취소되었습니다");});}
-function closePost(postId){if(!confirm("이 모집글을 마감할까?\\n마감 후 1시간 뒤 자동 삭제됩니다."))return;fetch("/close",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({post_id:postId})}).then(()=>refreshList());}
+function joinSlot(postId,slotId,job){let matching=getChars().filter(c=>c.job===job);let name="";if(matching.length===1){name=matching[0].name;}else if(matching.length>1){name=prompt("참여할 캐릭터명을 입력해줘.\\n등록 캐릭터: "+matching.map(c=>c.name).join(", "));}else{name=prompt(job+" 자리 참여 캐릭터명 입력");}if(!name)return;fetch("/join",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({post_id:postId,slot_id:slotId,char:name,participant_id:getClientId()})}).then(()=>{refreshList();showToast("참여되었습니다");});}
+function leaveSlot(postId,slotId){if(!confirm("이 자리를 비울까?"))return;fetch("/leave",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({post_id:postId,slot_id:slotId,participant_id:getClientId()})}).then(()=>{refreshList();showToast("취소되었습니다");});}
+function closePost(postId){if(!confirm("이 모집글을 마감할까?\\n마감 후 1시간 뒤 자동 삭제됩니다."))return;fetch("/close",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({post_id:postId,owner_id:getClientId()})}).then(()=>refreshList());}
 function deletePost(postId){if(!confirm("이 모집글을 바로 삭제할까?"))return;fetch("/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({post_id:postId})}).then(()=>refreshList());}
 function myNames(){return getChars().map(c=>c.name);}
 function markMyPosts(){let names=myNames();let count=0;document.querySelectorAll(".post").forEach(p=>{let ps=(p.dataset.participants||"").split("|");let mine=names.some(n=>ps.includes(n));p.classList.toggle("mine",mine);if(mine)count++;});let mc=document.getElementById("myCount");if(mc)mc.textContent=count;}
 function toggleMyPosts(){document.body.classList.toggle("my-filter-on");markMyPosts();showToast(document.body.classList.contains("my-filter-on")?"내 참여만 보기":"전체 보기");}
 markMyPosts();
+applyOwnerProtection();
 </script>
 </body>
 </html>
@@ -473,6 +508,8 @@ def edit_post(post_id):
     def do_edit(data):
         for p in data.get("posts", []):
             if p.get("id") == post_id:
+                if p.get("owner_id") and p.get("owner_id") != request.form.get("owner_id", "").strip():
+                    return
                 post_type = request.form.get("type", "사냥")
                 if post_type == "사냥":
                     place = request.form.get("place_hunting", "")
@@ -482,12 +519,14 @@ def edit_post(post_id):
                     place = request.form.get("place_quest", "")
                 jobs = request.form.getlist("slots")
                 chars = request.form.getlist("slot_chars")
+                participant_ids = request.form.getlist("slot_participant_ids")
                 slots = []
                 for idx, job in enumerate(jobs):
                     slots.append({
                         "id": str(uuid.uuid4()),
                         "job": job,
-                        "char": chars[idx] if idx < len(chars) else ""
+                        "char": chars[idx] if idx < len(chars) else "",
+                        "participant_id": participant_ids[idx] if idx < len(participant_ids) else ""
                     })
                 p["owner"] = request.form.get("owner", "").strip()
                 p["type"] = post_type
@@ -522,6 +561,7 @@ def create():
         post = {
             "id": str(uuid.uuid4()),
             "owner": request.form.get("owner", "").strip(),
+            "owner_id": request.form.get("owner_id", "").strip(),
             "type": post_type,
             "place": place,
             "channel": request.form.get("channel", "").strip(),
@@ -553,6 +593,7 @@ def join():
                 for slot in post.get("slots", []):
                     if slot.get("id") == req.get("slot_id") and not slot.get("char"):
                         slot["char"] = char_name
+                        slot["participant_id"] = req.get("participant_id", "").strip()
                         ensure_auto_closed(post)
                         return
     mutate_data(do_join)
@@ -564,9 +605,14 @@ def leave():
     def do_leave(data):
         for post in data.get("posts", []):
             if post.get("id") == req.get("post_id"):
+                is_owner = post.get("owner_id") and post.get("owner_id") == req.get("participant_id")
                 for slot in post.get("slots", []):
                     if slot.get("id") == req.get("slot_id"):
+                        is_participant = slot.get("participant_id") and slot.get("participant_id") == req.get("participant_id")
+                        if not (is_owner or is_participant):
+                            return
                         slot["char"] = ""
+                        slot["participant_id"] = ""
                         post["closed"] = False
                         post["closed_at"] = ""
                         return
@@ -579,6 +625,8 @@ def close():
     def do_close(data):
         for post in data.get("posts", []):
             if post.get("id") == req.get("post_id"):
+                if post.get("owner_id") and post.get("owner_id") != req.get("owner_id", ""):
+                    return
                 post["closed"] = True
                 if not post.get("closed_at"):
                     post["closed_at"] = now_iso()
@@ -591,14 +639,18 @@ def delete():
     req = request.get_json(force=True)
     def do_delete(data):
         post_id = req.get("post_id")
-        data["posts"] = [post for post in data.get("posts", []) if post.get("id") != post_id]
+        owner_id = req.get("owner_id", "")
+        data["posts"] = [
+            post for post in data.get("posts", [])
+            if not (post.get("id") == post_id and (not post.get("owner_id") or post.get("owner_id") == owner_id))
+        ]
     mutate_data(do_delete)
     return jsonify(ok=True)
 
 @app.route("/manifest.json")
 def manifest():
     return jsonify({
-        "name": "월하 연가 연희 파티모집",
+        "name": "월하 연가 연희 파티모집 v3",
         "short_name": "파티모집",
         "start_url": "/",
         "display": "standalone",
@@ -620,4 +672,4 @@ if __name__ == "__main__":
     print("내 PC 접속: http://127.0.0.1:7777")
     print("같은 와이파이 접속: http://이PC의IP:7777")
     print("마감/모집완료 글은 1시간 뒤 자동 삭제됩니다.")
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 7777)), debug=False, threaded=True)
+    app.run(host="0.0.0.0", port=7777, debug=False, threaded=True)
